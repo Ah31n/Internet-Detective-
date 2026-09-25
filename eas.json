@@ -1,6 +1,17 @@
 {
+  "//": [
+    "INTERNET DETECTIVE — EAS build and submit configuration.",
+    "",
+    "Credentials are deliberately absent. Run `npx eas init` to create the",
+    "project and `npx eas credentials` to let EAS generate and store signing",
+    "keys; do not commit a keystore, a .p8, or a service-account JSON.",
+    "",
+    "Values written as PLACEHOLDER_* must be replaced with real values from",
+    "your own Apple Developer and Google Play accounts before submitting.",
+    "See docs/STORE_READINESS.md."
+  ],
   "cli": {
-    "version": ">= 16.18.0",
+    "version": ">= 16.0.0",
     "appVersionSource": "remote"
   },
   "build": {
@@ -18,6 +29,7 @@
       }
     },
     "preview": {
+      "//": "Release-configuration build for internal testers. Same code path as production, installable without a store.",
       "distribution": "internal",
       "channel": "preview",
       "android": {
@@ -28,6 +40,7 @@
       }
     },
     "production": {
+      "//": "Store submission build. App Bundle for Play, archive for the App Store.",
       "autoIncrement": true,
       "channel": "production",
       "android": {
@@ -40,8 +53,15 @@
   },
   "submit": {
     "production": {
-      "ios": {},
+      "ios": {
+        "//": "From App Store Connect. appleId is the account email; ascAppId is the app's Apple ID; appleTeamId is on the Membership page.",
+        "appleId": "PLACEHOLDER_APPLE_ID_EMAIL",
+        "ascAppId": "PLACEHOLDER_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "PLACEHOLDER_APPLE_TEAM_ID"
+      },
       "android": {
+        "//": "Create a Google Play service account, grant it release permissions, download the JSON key, and keep it out of version control.",
+        "serviceAccountKeyPath": "PLACEHOLDER_PATH_TO_PLAY_SERVICE_ACCOUNT_JSON",
         "track": "internal",
         "releaseStatus": "draft"
       }
