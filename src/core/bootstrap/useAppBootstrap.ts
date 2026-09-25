@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '@/state/app.store';
 import { useCaseSessionStore } from '@/state/case-session.store';
-import { useEntitlementStore } from '@/state/entitlement.store';
+import { useEntitlementsHydrated } from '@/core/commerce';
 import { usePlayerProfileStore } from '@/state/player-profile.store';
 
 import { useFeedbackBridge } from '@/core/feedback/useFeedbackBridge';
@@ -21,7 +21,7 @@ export function useAppBootstrap() {
   const profileHydrated = usePlayerProfileStore((state) => state.hasHydrated);
   // Entitlements gate what the library will even offer to open, so the app
   // waits for them rather than briefly showing a case as unavailable.
-  const entitlementsHydrated = useEntitlementStore((state) => state.hasHydrated);
+  const entitlementsHydrated = useEntitlementsHydrated();
   const [fontsLoaded, fontError] = useFonts(Ionicons.font);
   const isReady =
     appStateHydrated &&
