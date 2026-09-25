@@ -4,7 +4,11 @@ import { getCaseDefinition } from '@/case-content/caseRegistry';
 import type { CaseAction, CaseDefinition } from '@/case-engine';
 import { useAppStore } from '@/state/app.store';
 import { useCaseSessionStore } from '@/state/case-session.store';
-import { useEntitlementStore } from '@/state/entitlement.store';
+import {
+  applyDeveloperGrant,
+  getDeveloperGrantPreset,
+  revokeAllDeveloperGrants,
+} from '@/core/commerce';
 import { autosaveStorage } from '@/state/persistence/autosaveStorage';
 import { usePlayerProfileStore } from '@/state/player-profile.store';
 
@@ -243,14 +247,29 @@ export const QA_TOOLS: readonly QATool[] = [
   },
   {
     id: 'simulate-premium',
-    label: 'SIMULATE PREMIUM ENTITLEMENT',
+    label:
+      getDeveloperGrantPreset('premium-complete')?.label ??
+      'SIMULATE PREMIUM ENTITLEMENT',
     description:
-      'Grants the complete edition locally, as a developer grant. No purchase is made.',
+      getDeveloperGrantPreset('premium-complete')?.description ??
+      'Grants the premium collection locally. No purchase is made.',
     category: 'account',
     run: () => {
       if (!DEV_TOOLS_ENABLED) return blocked;
-      useEntitlementStore.getState().devGrant('complete:edition');
-      return { ok: true, message: 'Granted complete:edition (source: developer).' };
+      // Named preset, not a literal id: the mapping lives with the catalog.
+      return applyDeveloperGrant('premium-complete');
+    },
+  },
+  {
+    id: 'simulate-season',
+    label: getDeveloperGrantPreset('season-one')?.label ?? 'SIMULATE SEASON ONE',
+    description:
+      getDeveloperGrantPreset('season-one')?.description ??
+      'Grants the first season only, to test partial ownership.',
+    category: 'account',
+    run: () => {
+      if (!DEV_TOOLS_ENABLED) return blocked;
+      return applyDeveloperGrant('season-one');
     },
   },
   {
@@ -262,8 +281,7 @@ export const QA_TOOLS: readonly QATool[] = [
     destructive: true,
     run: () => {
       if (!DEV_TOOLS_ENABLED) return blocked;
-      useEntitlementStore.getState().devResetEntitlements();
-      return { ok: true, message: 'All entitlements revoked.' };
+      return revokeAllDeveloperGrants();
     },
   },
   {
@@ -277,7 +295,7 @@ export const QA_TOOLS: readonly QATool[] = [
       if (!DEV_TOOLS_ENABLED) return blocked;
       useCaseSessionStore.getState().resetCaseSessions();
       usePlayerProfileStore.getState().resetProfile();
-      useEntitlementStore.getState().devResetEntitlements();
+      revokeAllDeveloperGrants();
       useAppStore.getState().resetShell();
       void autosaveStorage.flush();
       return { ok: true, message: 'Local save cleared and flushed.' };
