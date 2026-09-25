@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import { readProjectFile } from '@/test-support/projectRoot';
 
 /**
  * PHASE 16 — RENDER DISCIPLINE
@@ -16,7 +15,7 @@ import { describe, expect, it } from 'vitest';
  * These tests read the source and hold the discipline in place.
  */
 
-const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
+const read = readProjectFile;
 
 const BOARD = read('src/features/evidence-board/components/EvidenceBoard.tsx');
 const ARTIFACT = read(
