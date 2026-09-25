@@ -1,8 +1,12 @@
-import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  npxBinaryFor,
+  readExpoPublicConfig,
+  resolveExpoCliInvocation,
+} from '@/test-support/expoConfig';
 import {
   PROJECT_ROOT,
   fromRoot,
@@ -27,20 +31,36 @@ import {
 const ROOT = PROJECT_ROOT;
 const read = readProjectFile;
 
-/** The config as Expo itself resolves it, plugins and all. */
-function resolvedConfig(): Record<string, unknown> {
-  const raw = execFileSync('npx', ['expo', 'config', '--json', '--type', 'public'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-  return JSON.parse(raw) as Record<string, unknown>;
-}
-
-const config = resolvedConfig();
+// `expo config --json --type public`, run through the project's own pinned
+// CLI rather than through `npx` — which does not exist as an executable on
+// Windows and fails with ENOENT before Expo is ever reached.
+const config = readExpoPublicConfig();
 const ios = config.ios as Record<string, unknown>;
 const android = config.android as Record<string, unknown>;
+
+describe('the config check itself runs everywhere', () => {
+  it('invokes the Expo CLI without depending on a PATH lookup', () => {
+    // `execFileSync('npx', …)` fails with ENOENT on Windows, where the binary
+    // is `npx.cmd`. Running the CLI's JS entry with the current Node binary
+    // removes the lookup altogether and pins the project's own Expo version.
+    const invocation = resolveExpoCliInvocation();
+    expect(invocation.strategy).toBe('node-entry');
+    expect(invocation.command).toBe(process.execPath);
+    expect(invocation.leadingArgs[0]).toMatch(/expo[\\/]bin[\\/]cli$/);
+  });
+
+  it('falls back to the platform-correct npx binary', () => {
+    expect(npxBinaryFor('win32')).toBe('npx.cmd');
+    expect(npxBinaryFor('darwin')).toBe('npx');
+    expect(npxBinaryFor('linux')).toBe('npx');
+  });
+
+  it('actually returned a resolved config, not a stub', () => {
+    // Guards against the check quietly degrading into hard-coded values.
+    expect(Object.keys(config).length).toBeGreaterThan(10);
+    expect(config.plugins).toBeInstanceOf(Array);
+  });
+});
 
 describe('app identity', () => {
   it('is named INTERNET DETECTIVE', () => {
