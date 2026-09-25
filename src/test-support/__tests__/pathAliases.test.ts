@@ -1,8 +1,18 @@
+import { existsSync, statSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { CASE_001 } from '@/case-content/cases/case001/case001.definition';
-import { createInitialCasePlayerState } from '@/case-engine';
-import { PROJECT_ROOT, readProjectFile } from '@/test-support/projectRoot';
+// Imported twice on purpose, through both specifiers, so the test can prove
+// the alias and the relative path land on one module. `import/no-duplicates`
+// is correct in general and wrong here — that duplication is the assertion.
+// eslint-disable-next-line import/no-duplicates
+import * as caseEngineViaAlias from '@/case-engine';
+import { PROJECT_ROOT, fromRoot, readProjectFile } from '@/test-support/projectRoot';
+
+// eslint-disable-next-line import/no-duplicates
+import * as caseEngineViaRelativePath from '../../case-engine';
 
 /**
  * THE `@/` ALIAS, GUARDED
@@ -34,14 +44,54 @@ const tsconfig = JSON.parse(readProjectFile('tsconfig.json')) as Tsconfig;
 const declaredPaths = tsconfig.compilerOptions?.paths ?? {};
 
 describe('path aliases resolve at runtime', () => {
-  it('resolves `@/` to the source root', () => {
-    // If the alias were broken, this module would not have loaded at all.
-    expect(PROJECT_ROOT.endsWith('internet-detective')).toBe(true);
+  it('locates a project root that is really the project root', () => {
+    // This used to assert `PROJECT_ROOT.endsWith('internet-detective')`, which
+    // is not the invariant — it is a guess about what the developer named the
+    // folder they cloned into. A checkout at `Internet-Detective-`, or any
+    // other directory name, failed a test about module resolution for a reason
+    // that has nothing to do with module resolution.
+    //
+    // The identity that actually matters is structural, so it is checked
+    // structurally: an absolute path, containing this package, with the source
+    // root the alias points at.
+    expect(isAbsolute(PROJECT_ROOT)).toBe(true);
+    expect(existsSync(PROJECT_ROOT)).toBe(true);
+
+    const manifest = JSON.parse(readProjectFile('package.json')) as {
+      name?: string;
+    };
+    // The package's own name, which travels with the repository. Not the
+    // directory's name, which does not.
+    expect(manifest.name).toBe('internet-detective');
+
+    const sourceRoot = fromRoot('src');
+    expect(existsSync(sourceRoot)).toBe(true);
+    expect(statSync(sourceRoot).isDirectory()).toBe(true);
+    expect(existsSync(fromRoot('src', 'case-engine'))).toBe(true);
+  });
+
+  it('lands `@/` inside that source root, not merely somewhere', () => {
+    // The strongest available proof: the module reached through the alias and
+    // the module reached by walking up from this file are the same module
+    // instance. Vite would have to have resolved both to one file for that to
+    // hold, so the alias demonstrably points at `<root>/src`.
+    expect(caseEngineViaAlias).toBe(caseEngineViaRelativePath);
+  });
+
+  it('agrees with the mapping declared in tsconfig', () => {
+    const target = declaredPaths['@/*']?.[0];
+    expect(target).toBeDefined();
+
+    // `./src/*` -> `<root>/src`, which must be the directory the alias uses.
+    const declaredRoot = resolve(PROJECT_ROOT, target!.replace(/\/\*$/, ''));
+    expect(declaredRoot).toBe(fromRoot('src'));
   });
 
   it('resolves deep module paths through the alias', () => {
     expect(CASE_001.id).toBe('case-001-missing-diamond');
-    expect(typeof createInitialCasePlayerState).toBe('function');
+    expect(typeof caseEngineViaAlias.createInitialCasePlayerState).toBe(
+      'function',
+    );
   });
 
   it('resolves every alias prefix the project declares', async () => {
