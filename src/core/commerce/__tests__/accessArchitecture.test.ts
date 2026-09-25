@@ -1,7 +1,6 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import { readSourceFiles } from '@/test-support/projectRoot';
 
 import { PRODUCT_CATALOG } from '../catalog';
 
@@ -17,37 +16,54 @@ import { PRODUCT_CATALOG } from '../catalog';
  * anthology, which sells them, and the developer panel, which fakes them.
  */
 
-const SRC = join(process.cwd(), 'src');
+/**
+ * The only two places allowed to know the entitlement store exists.
+ *
+ * This list used to also contain `src/features/store`, `src/features/qa`,
+ * `src/core/dev`, and `src/core/bootstrap/useAppBootstrap.ts` — four surfaces
+ * that were reaching past the commerce layer into persistence directly. They
+ * now go through the domain API (`useAnthology`, `useEntitlementSnapshot`,
+ * `useEntitlementsHydrated`, `applyDeveloperGrant`), so the allowlist could be
+ * cut back to the layer boundary itself.
+ */
+const SELLING_SURFACES = ['src/core/commerce', 'src/state/entitlement.store.ts'];
 
-const SELLING_SURFACES = [
-  'src/features/store',
-  'src/core/commerce',
-  'src/state/entitlement.store.ts',
-  'src/core/bootstrap/useAppBootstrap.ts',
-  // Developer QA surface. Eliminated from release builds entirely, and held
-  // to that by the tests in src/core/dev/__tests__.
-  'src/core/dev',
-  'src/features/qa',
-];
-
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return sourceFiles(full);
-    return /\.tsx?$/.test(full) && !full.includes('__tests__') ? [full] : [];
-  });
-}
-
-const files = sourceFiles(SRC).map((path) => ({
-  path: path.replace(`${process.cwd()}/`, ''),
-  source: readFileSync(path, 'utf8'),
-}));
+// Anchored on the module's own location, never on the working directory: a
+// wrong cwd used to make every allowlist entry stop matching, reporting all
+// 152 project files as architecture leaks.
+const files = readSourceFiles('src');
 
 const outsideSellingSurfaces = files.filter(
   (file) => !SELLING_SURFACES.some((allowed) => file.path.startsWith(allowed)),
 );
 
 describe('phase 15 · access architecture', () => {
+  it('keeps the allowlist at the layer boundary', () => {
+    // An allowlist is only as good as its discipline. Widening it is the
+    // easiest way to make a genuine leak pass, so the shape of the list is
+    // itself asserted: the commerce layer, and the store it owns. Nothing else
+    // may be added without this failing first.
+    expect(SELLING_SURFACES).toEqual([
+      'src/core/commerce',
+      'src/state/entitlement.store.ts',
+    ]);
+  });
+
+  it('routes every other surface through the domain API', () => {
+    // The four surfaces that used to be exempt now consume the commerce layer.
+    const throughDomainApi: readonly [string, string][] = [
+      ['src/features/store/screens/ContentStoreScreen.tsx', 'useAnthology'],
+      ['src/features/qa/screens/QAConsoleScreen.tsx', 'useEntitlementSnapshot'],
+      ['src/core/bootstrap/useAppBootstrap.ts', 'useEntitlementsHydrated'],
+      ['src/core/dev/qaTools.ts', 'applyDeveloperGrant'],
+    ];
+    for (const [path, api] of throughDomainApi) {
+      const file = files.find((candidate) => candidate.path === path);
+      expect(file, path).toBeDefined();
+      expect(file!.source, `${path} must use ${api}`).toContain(api);
+    }
+  });
+
   it('finds the source it is auditing', () => {
     expect(files.length).toBeGreaterThan(60);
     expect(outsideSellingSurfaces.length).toBeGreaterThan(40);
