@@ -1,7 +1,6 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import { listSourceFiles, readProjectFile } from '@/test-support/projectRoot';
 
 /**
  * PHASE 19 — THE ANTI-WEBSITE AUDIT, MADE PERMANENT
@@ -16,8 +15,7 @@ import { describe, expect, it } from 'vitest';
  * corresponds to something that was actually wrong, not to a hypothetical.
  */
 
-const ROOT = process.cwd();
-const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+const read = readProjectFile;
 
 /**
  * Strips comments before auditing.
@@ -30,16 +28,7 @@ const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
 const withoutComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(join(ROOT, dir)).flatMap((entry) => {
-    const relative = `${dir}/${entry}`;
-    if (statSync(join(ROOT, relative)).isDirectory()) return sourceFiles(relative);
-    const isTest = relative.includes('__tests__') || /\.test\.tsx?$/.test(entry);
-    return /\.tsx$/.test(entry) && !isTest ? [relative] : [];
-  });
-}
-
-const SCREENS = sourceFiles('src/features')
+const SCREENS = listSourceFiles('src/features', { extensions: ['.tsx'] })
   .filter((path) => !path.startsWith('src/features/qa/'))
   .map((path) => ({ path, source: withoutComments(read(path)) }));
 
