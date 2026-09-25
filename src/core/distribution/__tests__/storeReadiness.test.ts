@@ -1,8 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
+
+import {
+  PROJECT_ROOT,
+  fromRoot,
+  listSourceFiles,
+  readProjectFile,
+} from '@/test-support/projectRoot';
 
 /**
  * PHASE 18 — STORE READINESS, ASSERTED
@@ -18,8 +24,8 @@ import { describe, expect, it } from 'vitest';
  * dependency is upgraded.
  */
 
-const ROOT = process.cwd();
-const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+const ROOT = PROJECT_ROOT;
+const read = readProjectFile;
 
 /** The config as Expo itself resolves it, plugins and all. */
 function resolvedConfig(): Record<string, unknown> {
@@ -159,16 +165,10 @@ describe('permissions', () => {
 });
 
 describe('offline operation', () => {
-  function sourceFiles(dir: string): string[] {
-    return readdirSync(join(ROOT, dir)).flatMap((entry) => {
-      const relative = `${dir}/${entry}`;
-      if (statSync(join(ROOT, relative)).isDirectory()) return sourceFiles(relative);
-      const isTest = relative.includes('__tests__') || /\.test\.tsx?$/.test(entry);
-      return /\.tsx?$/.test(entry) && !isTest ? [relative] : [];
-    });
-  }
-
-  const sources = sourceFiles('src').map((path) => ({ path, source: read(path) }));
+  const sources = listSourceFiles('src').map((path) => ({
+    path,
+    source: read(path),
+  }));
 
   it('has enough source to make the check meaningful', () => {
     expect(sources.length).toBeGreaterThan(80);
@@ -268,7 +268,7 @@ describe('build configuration', () => {
 
 describe('store assets', () => {
   function dimensions(path: string): { width: number; height: number } {
-    const data = readFileSync(join(ROOT, path));
+    const data = readFileSync(fromRoot(path));
     return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
   }
 
