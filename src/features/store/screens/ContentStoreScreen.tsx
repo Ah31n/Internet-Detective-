@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAmbientBed } from '@/core/audio/useGameAudio';
-import { useCaseLibrary } from '@/core/commerce';
+import { useAnthology, useCaseLibrary } from '@/core/commerce';
 import { AppText } from '@/design-system/components/AppText';
 import { Screen } from '@/design-system/components/Screen';
 import { TactilePressable } from '@/design-system/components/TactilePressable';
@@ -12,11 +12,6 @@ import { palette, spacing } from '@/design-system/theme/tokens';
 import { useRememberRoute } from '@/navigation/useRememberRoute';
 import { useAppStore } from '@/state/app.store';
 import { useCaseSessionStore } from '@/state/case-session.store';
-import {
-  selectIsBusy,
-  selectShelf,
-  useEntitlementStore,
-} from '@/state/entitlement.store';
 import { CASE_DEFINITIONS } from '@/case-content/caseRegistry';
 
 import { ShellHeader } from '../../shell/components/ShellHeader';
@@ -42,19 +37,14 @@ export function ContentStoreScreen() {
   const library = useCaseLibrary();
   const activateCase = useCaseSessionStore((state) => state.activateCase);
 
-  const shelf = useEntitlementStore(selectShelf);
-  const busy = useEntitlementStore(selectIsBusy);
-  const phase = useEntitlementStore((state) => state.phase);
-  const message = useEntitlementStore((state) => state.message);
-  const environment = useEntitlementStore((state) => state.billingEnvironment);
-  const productsLoaded = useEntitlementStore((state) => state.productsLoaded);
-  const loadProducts = useEntitlementStore((state) => state.loadProducts);
-  const purchase = useEntitlementStore((state) => state.purchase);
-  const restore = useEntitlementStore((state) => state.restore);
+  // One domain object instead of nine slices of persistence. The screen knows
+  // what an anthology has; it does not know how ownership is stored.
+  const anthology = useAnthology();
+  const { busy, message, phase, shelf } = anthology;
 
   useEffect(() => {
-    if (!productsLoaded) void loadProducts();
-  }, [productsLoaded, loadProducts]);
+    if (!anthology.productsLoaded) anthology.loadProducts();
+  }, [anthology]);
 
   const volumes = shelf.filter((entry) => entry.product.kind !== 'case');
 
@@ -125,7 +115,7 @@ export function ContentStoreScreen() {
             entry={entry}
             hapticsEnabled={hapticsEnabled}
             key={entry.product.id}
-            onAcquire={() => void purchase(entry.product.id)}
+            onAcquire={() => anthology.purchase(entry.product.id)}
           />
         ))}
 
@@ -145,7 +135,7 @@ export function ContentStoreScreen() {
           accessibilityState={{ disabled: busy }}
           disabled={busy}
           hapticsEnabled={hapticsEnabled}
-          onPress={() => void restore()}
+          onPress={() => anthology.restore()}
           style={styles.restore}
         >
           <AppText variant="mono" color={palette.paperMuted}>
@@ -175,7 +165,7 @@ export function ContentStoreScreen() {
             </View>
           ))}
 
-          {environment === 'mock' ? (
+          {anthology.isDevelopmentBilling ? (
             <View style={styles.devNotice}>
               <Ionicons color={palette.rustText} name="construct-outline" size={15} />
               <AppText variant="mono" color={palette.rustText} style={styles.devCopy}>
