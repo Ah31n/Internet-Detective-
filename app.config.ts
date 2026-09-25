@@ -1,193 +1,126 @@
 import type { ExpoConfig } from 'expo/config';
 
 /**
- * INTERNET DETECTIVE
- * Native mobile application configuration.
+ * INTERNET DETECTIVE — production application configuration.
  *
- * Production target:
- *   - iOS
- *   - Android
+ * Replaces app.json so the store-readiness decisions can carry their reasons.
+ * Every value here is either final or a clearly marked placeholder; nothing
+ * account-specific is invented. See docs/STORE_READINESS.md for the submission
+ * checklist and docs/PRIVACY.md for the data declarations these settings back.
  *
- * This project is intentionally NOT a web application.
- * There is no PWA, WebView, HTML/CSS UI, or web target.
+ * ── PLACEHOLDERS ───────────────────────────────────────────────────────────
+ * The following must be filled in from your own developer accounts before a
+ * real submission. They are left empty on purpose — a fabricated team id or
+ * project id fails late and confusingly.
+ *
+ *   EAS_PROJECT_ID     `npx eas init` writes this; also sets `owner`.
+ *   APPLE_TEAM_ID      Apple Developer → Membership.
+ *   ASC_APP_ID         App Store Connect → App Information → Apple ID.
+ *
+ * Bundle and package identifiers below are real and final for this project.
+ * Change them only if you own a different reverse-DNS domain.
  */
 
+const EAS_PROJECT_ID = process.env.EAS_PROJECT_ID ?? '';
+
+/** Marketing version. Bump for every public release. */
+const VERSION = '1.0.0';
+
+/**
+ * Build numbers are managed remotely by EAS (`appVersionSource: "remote"` in
+ * eas.json, with `autoIncrement` on the production profile). The literals here
+ * are the local fallback for bare builds and for anything that reads the
+ * config directly — the in-app build stamp, for instance.
+ */
+const IOS_BUILD_NUMBER = '1';
+const ANDROID_VERSION_CODE = 1;
+
+/** Ink from the design system. The launch surface must not flash white. */
 const INK = '#121511';
-const GOLD = '#D3A44B';
 
 const config: ExpoConfig = {
-  /**
-   * ------------------------------------------------------------
-   * IDENTITY
-   * ------------------------------------------------------------
-   */
   name: 'INTERNET DETECTIVE',
   slug: 'internet-detective',
-  version: '1.0.0',
-
-  /**
-   * Only build for mobile platforms.
-   */
+  version: VERSION,
   platforms: ['ios', 'android'],
-
-  /**
-   * The entire game is designed around a phone held vertically.
-   */
+  // A portrait detective game. Nothing in the evidence board, the browser, or
+  // the viewers is designed to rotate, so rotation is not offered.
   orientation: 'portrait',
-
-  /**
-   * App appearance.
-   */
+  icon: './assets/images/icon.png',
+  scheme: 'internetdetective',
+  // The game has one look. Following the system theme would fight the art.
   userInterfaceStyle: 'dark',
   backgroundColor: INK,
-  primaryColor: GOLD,
-
-  /**
-   * App icon.
-   */
-  icon: './assets/images/icon.png',
-
-  /**
-   * Deep-link / native URL scheme.
-   */
-  scheme: 'internetdetective',
-
-  /**
-   * No OTA content changes.
-   *
-   * INTERNET DETECTIVE is an authored, deterministic investigation game.
-   * Case content should ship with a known application version rather than
-   * silently changing underneath a player's investigation.
-   */
-  updates: {
-    enabled: false,
-  },
-
-  /**
-   * Bundle application assets.
-   */
+  primaryColor: '#D3A44B',
+  // No OTA updates are configured: the game ships complete and offline, and a
+  // silent content swap is the wrong model for an authored mystery.
+  updates: { enabled: false },
   assetBundlePatterns: ['assets/**/*'],
 
-  /**
-   * ------------------------------------------------------------
-   * iOS
-   * ------------------------------------------------------------
-   */
   ios: {
-    /**
-     * IMPORTANT:
-     * Verify this identifier is available in your Apple Developer account
-     * before the first App Store submission.
-     */
     bundleIdentifier: 'com.internetdetective.game',
-
-    /**
-     * Local fallback build number.
-     * EAS production builds use remote versioning + autoIncrement.
-     */
-    buildNumber: '1',
-
-    /**
-     * Phone-first product.
-     */
+    buildNumber: IOS_BUILD_NUMBER,
+    // iPhone-first by design. The board, the viewers, and the typography are
+    // laid out for a phone in the hand; shipping an unconsidered iPad build
+    // would be worse than not shipping one.
     supportsTablet: false,
-
-    /**
-     * App icon.
-     */
     icon: './assets/images/icon.png',
-
     infoPlist: {
-      /**
-       * Export-compliance declaration.
-       *
-       * The game does not implement non-exempt encryption.
-       */
+      // The app performs no encryption beyond what the OS provides, so the
+      // export-compliance question is answered here once instead of on every
+      // TestFlight upload.
       ITSAppUsesNonExemptEncryption: false,
-
-      /**
-       * Do not permit arbitrary insecure network loads.
-       *
-       * The game's canonical investigation content is local.
-       */
+      // No arbitrary loads: the game makes no network requests at all, and
+      // this makes that non-negotiable at the platform level.
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: false,
       },
-
-      /**
-       * Status-bar appearance is controlled by the app.
-       */
       UIViewControllerBasedStatusBarAppearance: false,
     },
   },
 
-  /**
-   * ------------------------------------------------------------
-   * Android
-   * ------------------------------------------------------------
-   */
   android: {
-    /**
-     * IMPORTANT:
-     * Verify this identifier is available in your Google Play
-     * developer account before publishing.
-     */
     package: 'com.internetdetective.game',
-
-    /**
-     * Local fallback version code.
-     * EAS production autoIncrement handles subsequent releases.
-     */
-    versionCode: 1,
-
-    /**
-     * Android adaptive icon.
-     */
+    versionCode: ANDROID_VERSION_CODE,
     adaptiveIcon: {
       backgroundColor: INK,
       foregroundImage: './assets/images/android-icon-foreground.png',
       monochromeImage: './assets/images/android-icon-monochrome.png',
     },
-
-    /**
-     * Support Android's predictive-back behavior.
-     */
     predictiveBackGestureEnabled: true,
-
     /**
-     * ----------------------------------------------------------
-     * PERMISSION HARDENING
-     * ----------------------------------------------------------
+     * PERMISSION AUDIT — removals.
      *
-     * The game does not need:
-     *   - camera
-     *   - microphone
-     *   - contacts
-     *   - location
-     *   - SMS
-     *   - gallery/storage access
-     *   - advertising identifier
+     * These were being added transitively by library config plugins, not by
+     * anything the game does. Each is stripped from the merged manifest.
      *
-     * Case content is bundled with the application.
+     *   READ/WRITE_EXTERNAL_STORAGE  expo-image's manifest, for loading user
+     *                                gallery images. Every image in this game
+     *                                is bundled; none is ever read from disk.
+     *   SYSTEM_ALERT_WINDOW          React Native's debug overlay.
+     *
+     * RECORD_AUDIO is not listed here because it is refused at the source —
+     * see the expo-audio plugin options below. Blocking a permission is a
+     * last resort; not requesting it is better.
      */
-
     blockedPermissions: [
       'android.permission.READ_EXTERNAL_STORAGE',
       'android.permission.WRITE_EXTERNAL_STORAGE',
       'android.permission.SYSTEM_ALERT_WINDOW',
-      'android.permission.RECORD_AUDIO',
     ],
-
     /**
-     * Permissions required by the actual application/runtime.
+     * PERMISSION AUDIT — what remains, and why.
      *
-     * INTERNET is retained because React Native / native runtime tooling
-     * may require it at the platform level, even though canonical gameplay
-     * does not depend on an internet connection.
+     *   INTERNET                  Required by the React Native runtime itself.
+     *                             The game issues no requests; a test asserts
+     *                             there is no fetch, XHR, or socket in the
+     *                             source. It is a normal permission and shows
+     *                             the player no prompt.
+     *   VIBRATE                   Haptic feedback on the evidence board.
+     *   MODIFY_AUDIO_SETTINGS     Ambient beds and interface cues.
      *
-     * VIBRATE is used for tactile feedback.
-     *
-     * MODIFY_AUDIO_SETTINGS supports the game's local audio presentation.
+     * No contacts, microphone, camera, location, SMS, storage, or identifier
+     * permission is requested.
      */
     permissions: [
       'android.permission.INTERNET',
@@ -196,20 +129,8 @@ const config: ExpoConfig = {
     ],
   },
 
-  /**
-   * ------------------------------------------------------------
-   * NATIVE PLUGINS
-   * ------------------------------------------------------------
-   */
   plugins: [
-    /**
-     * Expo Router.
-     */
     'expo-router',
-
-    /**
-     * Native splash screen.
-     */
     [
       'expo-splash-screen',
       {
@@ -219,96 +140,53 @@ const config: ExpoConfig = {
         resizeMode: 'contain',
       },
     ],
-
-    /**
-     * Bundled custom fonts.
-     */
     'expo-font',
-
-    /**
-     * Native image handling.
-     */
     'expo-image',
-
-    /**
-     * Video support for future / supported CCTV footage.
-     *
-     * Background playback and picture-in-picture are intentionally disabled.
-     * CCTV is an investigation surface, not a media-player feature.
-     */
     [
       'expo-video',
       {
+        // A case file should stop when the player puts the phone down.
         supportsBackgroundPlayback: false,
         supportsPictureInPicture: false,
       },
     ],
-
-    /**
-     * Local game audio only.
-     *
-     * CRITICAL:
-     * This game does NOT record audio.
-     *
-     * Therefore:
-     *   - microphone permission OFF
-     *   - Android recording permission OFF
-     *   - background recording OFF
-     *   - background playback OFF
-     */
     [
       'expo-audio',
       {
+        /**
+         * The single most important block in this file.
+         *
+         * expo-audio's plugin defaults request the microphone on both
+         * platforms and declare background audio. This game only ever plays
+         * short bundled cues and room tone — it has never recorded anything.
+         *
+         * Left at their defaults, a store listing would have to explain why a
+         * detective game wants your microphone, and iOS would show the
+         * recording indicator. All four are turned off.
+         *
+         *   microphonePermission: false  drops NSMicrophoneUsageDescription
+         *   recordAudioAndroid: false    drops RECORD_AUDIO
+         *   enableBackgroundPlayback     drops UIBackgroundModes: audio and
+         *     : false                    the FOREGROUND_SERVICE permissions
+         */
         microphonePermission: false,
         recordAudioAndroid: false,
         enableBackgroundRecording: false,
         enableBackgroundPlayback: false,
       },
     ],
-
-    /**
-     * Local/bundled asset handling.
-     */
     'expo-asset',
-
-    /**
-     * Removes development-only native configuration from release builds.
-     */
+    // Local: removes developer-tooling keys from a release Info.plist.
     './plugins/withReleaseHygiene',
   ],
 
-  /**
-   * ------------------------------------------------------------
-   * EXPERIMENTAL / DEVELOPMENT FEATURES
-   * ------------------------------------------------------------
-   */
   experiments: {
-    /**
-     * Typed Expo Router routes.
-     */
     typedRoutes: true,
-
-    /**
-     * React Compiler was part of the existing project configuration.
-     * Preserve it rather than silently changing the project's architecture.
-     */
     reactCompiler: true,
   },
 
-  /**
-   * ------------------------------------------------------------
-   * EAS PROJECT LINK
-   * ------------------------------------------------------------
-   *
-   * This is the EAS project created by `eas init`.
-   *
-   * Because this is a dynamic app.config.ts file, EAS could not inject
-   * the project ID automatically. It must be explicitly declared here.
-   */
   extra: {
-    eas: {
-      projectId: '0fc39900-501f-430c-b365-3bb96aecfd7b',
-    },
+    ...(EAS_PROJECT_ID ? { eas: { projectId: EAS_PROJECT_ID } } : {}),
   },
 };
 
