@@ -1,7 +1,6 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import { readSourceFiles } from '@/test-support/projectRoot';
 
 /**
  * PHASE 14 — a standing audit of the source itself.
@@ -10,16 +9,6 @@ import { describe, expect, it } from 'vitest';
  * invisible to a screen reader and nothing else in the build would complain.
  * These tests read the TSX and fail the gate instead.
  */
-
-const SRC = join(process.cwd(), 'src');
-
-function tsxFiles(dir: string): string[] {
-  return readdirSync(dir).flatMap((entry) => {
-    const full = join(dir, entry);
-    if (statSync(full).isDirectory()) return tsxFiles(full);
-    return full.endsWith('.tsx') ? [full] : [];
-  });
-}
 
 /** Returns the text of each opening tag for the given component. */
 function openingTags(source: string, component: string): string[] {
@@ -41,10 +30,13 @@ function openingTags(source: string, component: string): string[] {
   return tags;
 }
 
-const files = tsxFiles(SRC).map((path) => ({
-  path: path.replace(`${process.cwd()}/`, ''),
-  source: readFileSync(path, 'utf8'),
-}));
+// Root-anchored on this module's own location rather than the working
+// directory, so a runner started elsewhere cannot silently change what is
+// audited.
+const files = readSourceFiles('src', {
+  extensions: ['.tsx'],
+  excludeTests: false,
+});
 
 describe('phase 14 · source audit', () => {
   it('finds the screens it is supposed to be auditing', () => {
