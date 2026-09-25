@@ -1,7 +1,6 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
+
+import { listSourceFiles, readProjectFile } from '@/test-support/projectRoot';
 
 import { resolveDevToolsEnabled } from '../devMode';
 
@@ -21,19 +20,9 @@ import { resolveDevToolsEnabled } from '../devMode';
  *      canonical solution.      — tools/verify_release_bundle.mjs, in the gate
  */
 
-const ROOT = process.cwd();
-const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+const read = readProjectFile;
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(join(ROOT, dir)).flatMap((entry) => {
-    const relative = `${dir}/${entry}`;
-    if (statSync(join(ROOT, relative)).isDirectory()) return sourceFiles(relative);
-    const isTest = relative.includes('__tests__') || /\.test\.tsx?$/.test(entry);
-    return /\.tsx?$/.test(entry) && !isTest ? [relative] : [];
-  });
-}
-
-const APP_SOURCES = sourceFiles('src')
+const APP_SOURCES = listSourceFiles('src')
   .filter(
     (path) =>
       !path.startsWith('src/core/dev/') && !path.startsWith('src/features/qa/'),
