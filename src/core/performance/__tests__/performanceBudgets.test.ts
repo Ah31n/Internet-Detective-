@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { PROJECT_ROOT, toProjectPath } from '@/test-support/projectRoot';
+
 import { CASE_001 } from '@/case-content/cases/case001/case001.definition';
 import {
   createInitialCasePlayerState,
@@ -23,7 +25,7 @@ import {
  * Android with roughly a third of the memory headroom.
  */
 
-const ROOT = process.cwd();
+const ROOT = PROJECT_ROOT;
 const CASE_ASSETS = join(ROOT, 'assets', 'cases');
 
 /** Reads width and height out of a JPEG header without decoding it. */
@@ -60,7 +62,7 @@ function imageFiles(dir: string): string[] {
 }
 
 const images = imageFiles(CASE_ASSETS).map((path) => ({
-  path: path.replace(`${ROOT}/`, ''),
+  path: toProjectPath(path),
   name: path.split('/').pop()!,
   bytes: statSync(path).size,
   ...jpegDimensions(path),
