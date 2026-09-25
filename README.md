@@ -62,9 +62,7 @@ relaunch: current case, completed cases, settings, achievements, detective
 level, and the full per-case record of evidence, notes, board layout,
 connections, timeline pins, theories, hints, duration, and the last opened
 screen and evidence. Writes are debounced and coalesced, damaged saves are
-quarantined and recovered from a rolling backup instead of being erased, and a
-`__DEV__`-only tools panel can reset the case, clear the save, unlock evidence,
-complete the case, or reset the board.
+quarantined and recovered from a rolling backup instead of being erased.
 
 See [`docs/PERSISTENCE.md`](docs/PERSISTENCE.md).
 
@@ -80,6 +78,46 @@ gesture navigation, and returning from a detour restores the investigation
 context instead of resetting it.
 
 See [`docs/INTERACTION.md`](docs/INTERACTION.md).
+
+## Progression, motion, audio, and accessibility
+
+Offline deterministic progression with seven detective ranks and ten
+commendations; a documented motion system with a reduced-motion contract; a
+four-layer audio mix that suspends with the app; and an accessibility pass
+covering contrast, dynamic type, touch targets, screen-reader naming, and the
+rule that colour never carries meaning alone.
+
+See [`docs/MOTION.md`](docs/MOTION.md), [`docs/AUDIO.md`](docs/AUDIO.md), and
+[`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md).
+
+## Entitlements, the anthology, and purchase architecture
+
+An abstract entitlement model (`case:001`, `season:01`, `complete:edition`)
+with a data-driven containment graph. Screens ask one question,
+`canAccessCase`, and never inspect a purchase state — enforced by a source
+audit. The store is a published anthology rather than a pricing page. Billing
+is architecture only: a deterministic mock adapter in development and an
+honestly unwired platform adapter in release. Case 001 is bundled, free, and
+permanent.
+
+See [`docs/COMMERCE.md`](docs/COMMERCE.md).
+
+## Performance, developer tools, and distribution
+
+A production performance pass on render discipline, image budgets, memory, and
+the evidence board's per-frame cost, with budgets enforced by test. A
+developer-only QA console that is excluded from release bundles at the bundler,
+not merely hidden — verified by grepping a compiled production build. And a
+full store-readiness pass: permissions cut from nine to three, no iOS usage
+descriptions, an offline guarantee asserted by test, and complete listing and
+privacy material.
+
+See [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md),
+[`docs/DEVELOPER_TOOLS.md`](docs/DEVELOPER_TOOLS.md),
+[`docs/STORE_READINESS.md`](docs/STORE_READINESS.md),
+[`docs/STORE_LISTING.md`](docs/STORE_LISTING.md),
+[`docs/PRIVACY.md`](docs/PRIVACY.md), and
+[`docs/PLAYER_AUDIT.md`](docs/PLAYER_AUDIT.md).
 
 ## Foundation
 
@@ -117,11 +155,18 @@ npm run typecheck
 npm run lint
 npm test
 npm run doctor
+
+# Exports a real production bundle and fails if the canonical solution or the
+# developer tools are present in the compiled output.
+npm run verify:release
 ```
 
 ## Store builds
 
-Before the first store build, connect the repository to an Expo account and confirm ownership of the identifiers in `app.json`.
+Before the first store build, run `npx eas init`, then replace every
+`PLACEHOLDER_*` value in `eas.json` and `docs/STORE_LISTING.md` with values
+from your own Apple and Google developer accounts. Identifiers live in
+`app.config.ts`. No credentials are committed to this repository.
 
 ```bash
 npm run build:ios
@@ -135,7 +180,9 @@ src/
   app/                  Expo Router composition, evidence, and Case Net routes
   case-engine/          Pure deterministic case/evidence/internet domain runtime
   case-content/         Validated registry and bundled native media registries
-  core/                 Bootstrap, haptics, and service boundaries
+  core/                 Bootstrap, audio, haptics, progression, and service boundaries
+    commerce/            Entitlements, catalog, case access, purchase adapters
+    dev/                 Developer QA tools, excluded from release bundles
   design-system/        Native controls and visual tokens
   features/
     shell/               Launch and top-level shell screens
@@ -143,9 +190,15 @@ src/
     evidence/            Full-screen inspector and eight viewers
     evidence-board/      Touch wall, physical artifacts, strings, and tools
     internet/            Case Net index, browser chrome, and site renderer
+    profile/             The typeset detective record
+    store/               The anthology
     settings/            Native settings screen
+    qa/                  Developer QA console (development builds only)
   navigation/           Route restoration hook
-  state/                Shell, case-session, and profile stores plus the autosave transport
+  state/                Shell, case-session, profile, and entitlement stores
+                        plus the autosave transport
+plugins/                Local Expo config plugin for release hygiene
+tools/                  Asset pipeline, audio generation, release verification
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture.
