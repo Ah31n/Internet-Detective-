@@ -4,11 +4,7 @@ import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { getCaseDefinition } from '@/case-content/caseRegistry';
-import {
-  BUNDLED_ENTITLEMENTS,
-  ENTITLEMENT_INDEX,
-  resolveHeldEntitlements,
-} from '@/core/commerce';
+import { useEntitlementSnapshot } from '@/core/commerce';
 import {
   loadCanonicalReveal,
   loadDependencyGraph,
@@ -35,7 +31,6 @@ import { TactilePressable } from '@/design-system/components/TactilePressable';
 import { palette, spacing } from '@/design-system/theme/tokens';
 import { useAppStore } from '@/state/app.store';
 import { useCaseSessionStore } from '@/state/case-session.store';
-import { useEntitlementStore } from '@/state/entitlement.store';
 
 /**
  * THE QA CONSOLE
@@ -62,34 +57,22 @@ export function QAConsoleScreen() {
 
   const hapticsEnabled = useAppStore((state) => state.settings.hapticsEnabled);
   const session = useCaseSessionStore((state) => state.sessions[CASE_ID] ?? null);
-  const grants = useEntitlementStore((state) => state.grants);
-  const billingEnvironment = useEntitlementStore((state) => state.billingEnvironment);
-  const billingAvailable = useEntitlementStore((state) => state.billingAvailable);
+  const entitlements = useEntitlementSnapshot();
 
   const definition = getCaseDefinition(CASE_ID);
 
   const sections: readonly InspectorSection[] = useMemo(() => {
     if (!definition) return [];
-    const held = resolveHeldEntitlements(
-      grants,
-      BUNDLED_ENTITLEMENTS,
-      ENTITLEMENT_INDEX,
-    );
     return [
       inspectCaseState(definition, session),
       inspectPlayerState(definition, session),
-      inspectEntitlementState({
-        grants,
-        billingEnvironment,
-        billingAvailable,
-        heldEntitlementIds: [...held],
-      }),
+      inspectEntitlementState(entitlements),
       inspectConnectionState(session),
       inspectTheoryState(session),
       inspectTimelineState(definition, session),
       inspectEvidenceIds(definition, session),
     ];
-  }, [billingAvailable, billingEnvironment, definition, grants, session]);
+  }, [definition, entitlements, session]);
 
   const dependencies = useMemo(
     () => loadDependencyGraph(CASE_ID, session?.discoveredEvidenceIds ?? []) ?? [],
